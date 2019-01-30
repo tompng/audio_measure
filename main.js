@@ -1,12 +1,14 @@
+window.AudioContext = window.AudioContext || window.webkitAudioContext
+let playing = true
 onload = () => {
-  document.body.onclick = () => {
-    document.body.onclick = null
+  document.body.onclick = document.body.ontouchstart = () => {
+    document.body.onclick = document.body.ontouchstart = null
     start()
   }
 }
 
 class PhaseFilter {
-  constructor(hz, time = 0.1) {
+  constructor(hz, time = 0.05) {
     const eth = 2 * Math.PI / 44100 * hz
     const etr = Math.cos(eth)
     const eti = Math.sin(eth)
@@ -36,77 +38,101 @@ class PhaseFilter {
 }
 
 function start() {
-  const audioContext = new AudioContext()
-  const node = audioContext.createScriptProcessor(1024, 1, 2)
+  const audioContext = new (window.AudioContext || window.webkitAudioContext)()
+  const node = audioContext.createScriptProcessor(2048, 1, 2)
   node.connect(audioContext.destination)
-
   navigator.getUserMedia({ audio: true }, stream => {
      var source = audioContext.createMediaStreamSource(stream)
      source.connect(node)
   }, e => console.error(e))
+  const canvas = document.querySelector('canvas')
+  ctx = canvas.getContext('2d')
+  const N = 13
   const hz0 = 441 * 8
   const hzs = []
-  const N = 5
+  const divs = []
+  const filters = []
   for (let i = 0; i < N; i++) {
-    hzs.push(hz0 * Math.pow(2, i / N))
+    const hz = hz0 * Math.pow(3, i / N)
+    hzs.push(hz)
+    filters.push(new PhaseFilter(hz))
   }
-  const hz1 = hzs[0]
-  const hz2 = hzs[1]
-  const hz3 = hzs[2]
-  const hz4 = hzs[3]
-  let cnt = 0
-  const divs = ['red', 'blue', 'green', 'gray'].map(color => {
+  const L = 500
+  for (let mm = 0; mm <= L; mm += 50) {
+    ctx.fillText((mm/10), canvas.width * mm / L, canvas.height - 6)
     const div = document.createElement('div')
+    div.className = 'label'
+    div.textContent = mm / 10
+    if (mm == 0) { div.style.left = 0; div.style.textAlign = 'left' }
+    else if (mm == L) { div.style.right = 0; div.style.textAlign = 'right' }
+    else div.style.left = (100 * (mm / L) - 5) + '%'
     document.body.appendChild(div)
-    div.style.cssText = `
-      position: fixed;
-      width: 1px;
-      height: 100%;
-      background: ${color};
-      box-shadow: 0 0 2px ${color};
-    `
-    return div
-  })
-
-  const filters = [new PhaseFilter(hz1), new PhaseFilter(hz2), new PhaseFilter(hz3), new PhaseFilter(hz4)]
-  document.body.onclick = () => {
-    filters.forEach(f => f.setZero())
   }
+  document.body.onclick = document.body.ontouchstart = () => {
+    playing = !playing
+  }
+  let cnt = 0
   node.onaudioprocess = e => {
+    const input = e.inputBuffer.getChannelData(0)
     const output0 = e.outputBuffer.getChannelData(0)
     const output1 = e.outputBuffer.getChannelData(1)
-    const input = e.inputBuffer.getChannelData(0)
+    if (!playing) {
+      cnt = 0
+      for (let i = 0; i < input.length; i++) {
+        output0[i] = output1[i] = 0
+      }
+      return
+    }
     for (let i = 0; i < input.length; i++) {
-      cnt++
-      output0[i] = 0.25 * (Math.sin(2 * Math.PI * cnt / 44100 * hz1) + Math.sin(2 * Math.PI * cnt / 44100 * hz3)) +
-                   0.25 * (Math.sin(2 * Math.PI * cnt / 44100 * hz2) + Math.sin(2 * Math.PI * cnt / 44100 * hz4))
-      // output0[i] = 0.5 * (Math.sin(2 * Math.PI * cnt / 44100 * hz1) + Math.sin(2 * Math.PI * cnt / 44100 * hz3))
-      // output1[i] = 0.5 * (Math.sin(2 * Math.PI * cnt / 44100 * hz2) + Math.sin(2 * Math.PI * cnt / 44100 * hz4))
-      const v = input[i]
-      filters.forEach(f => f.update(v))
-    }
-    const max = Math.max(...filters.map(f => f.magnitude))
-    for (let i = 0; i < divs.length; i++) {
-      divs[i].style.left = filters[i].normalizedPhase * 100 + '%'
-      divs[i].style.opacity = filters[i].magnitude / max
-    }
-    const result = { v: 0, mm: 0 }
-    for (let mm = 0; mm < 1000; mm++) {
       let v = 0
-      for (let j = 0; j < 4; j++) {
+      for (let j = 0; j < N; j++) {
+        v += Math.sin(2 * Math.PI * cnt / 44100 * hzs[j])
+      }
+      cnt++
+      output0[i] = v / N
+      output1[i] = 0
+      filters.forEach(f => f.update(input[i]))
+    }
+    if (cnt < 44100) return
+    if (cnt < 44100 + input.length) filters.forEach(f => f.setZero())
+    const max = Math.max(...filters.map(f => f.magnitude))
+    const result = { v: 0, mm: 0 }
+    for (let mm = 0; mm < L; mm++) {
+      let v = 0
+      let weight = 0
+      for (let j = 0; j < N; j++) {
         const f = filters[j]
         const hz =hzs[j]
         const wlen = 340 * 1000 / hz
-        const w = (1 + Math.cos(2 * Math.PI * mm / wlen - f.normalizedPhase * 2 * Math.PI)) / 2
-        const wv = (max / 8 + f.magnitude) * Math.pow(w, 4)
-        v += wv
+        const wave = (1 + Math.cos(2 * Math.PI * mm / wlen - f.normalizedPhase * 2 * Math.PI)) / 2
+        const w = (max / N  + f.magnitude)
+        v += w * Math.pow(wave, 2)
+        weight += w
       }
-      v /= 1000 + mm
       if (result.v < v) {
         result.v = v
         result.mm = mm
       }
     }
-    document.querySelector('#distance').textContent = result.mm/10 + 'cm'
+    const maxSize = Math.max(canvas.offsetWidth, canvas.offsetHeight)
+    const cw = Math.round(canvas.offsetWidth / maxSize * 512)
+    const ch = Math.round(canvas.offsetHeight / maxSize * 512)
+    if (canvas.width != cw || canvas.height != ch) {
+      canvas.width = cw
+      canvas.height = ch
+    }
+    ctx.fillStyle = 'silver'
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    for (let i = 0; i < N; i++) {
+      const f = filters[i]
+      const hz =hzs[i]
+      const wlen = 340 * 1000 / hz
+      for (let j = 0; j < L / wlen; j++) {
+        const x = (wlen * j + wlen * f.normalizedPhase) / L * canvas.width
+        ctx.fillRect(x - 1, canvas.height * i / N, 2, canvas.height / N)
+      }
+    }
+    ctx.fillRect(result.mm / L * canvas.width - 4, 0, 8, canvas.height)
+    document.querySelector('#distance').textContent = result.mm / 10 + 'cm'
   }
 }

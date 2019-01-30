@@ -1,15 +1,31 @@
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no">
 <script src='main.js'></script>
-<div id='distance'>**cm</div>
 <style>
 #distance{
   position:fixed;
-  left:0;
-  top:0;
-  font-size: 20px;
-  width: 100px;
-  height: 2em;
-  line-height: 2em;
+  left: 0;
+  top: 0;
+  font-size: 30vmin;
+  width: 100%;
+  height: 100vh;
+  line-height: 100vh;
   text-align: center;
-  background: #aaf;
+  opacity: 0.5;
+}
+.label {
+  position: fixed;
+  bottom: 0;
+  width: 10%;
+  font-size: 4vh;
+  text-align: center;
+}
+canvas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
 }
 </style>
+<canvas></canvas>
+<div id='distance'>click</div>
