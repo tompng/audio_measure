@@ -93,8 +93,7 @@ function start() {
       output1[i] = 0
       filters.forEach(f => f.update(input[i]))
     }
-    if (cnt < 44100) return
-    if (cnt < 44100 + input.length) filters.forEach(f => f.setZero())
+    if (cnt < 44100) filters.forEach(f => f.setZero())
     const max = Math.max(...filters.map(f => f.magnitude))
     const result = { v: 0, mm: 0 }
     for (let mm = 0; mm < L; mm++) {
@@ -121,7 +120,8 @@ function start() {
       canvas.width = cw
       canvas.height = ch
     }
-    ctx.fillStyle = 'silver'
+    ctx.fillStyle = 'gray'
+    ctx.globalAlpha = 1
     ctx.clearRect(0, 0, canvas.width, canvas.height)
     for (let i = 0; i < N; i++) {
       const f = filters[i]
@@ -132,6 +132,7 @@ function start() {
         ctx.fillRect(x - 1, canvas.height * i / N, 2, canvas.height / N)
       }
     }
+    ctx.globalAlpha = 0.4
     ctx.fillRect(result.mm / L * canvas.width - 4, 0, 8, canvas.height)
     document.querySelector('#distance').textContent = result.mm / 10 + 'cm'
   }
