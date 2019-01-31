@@ -50,7 +50,6 @@ function start() {
   const N = 13
   const hz0 = 441 * 8
   const hzs = []
-  const divs = []
   const filters = []
   for (let i = 0; i < N; i++) {
     const hz = hz0 * Math.pow(3, i / N)
@@ -60,13 +59,24 @@ function start() {
   const L = 500
   for (let mm = 0; mm <= L; mm += 50) {
     ctx.fillText((mm/10), canvas.width * mm / L, canvas.height - 6)
-    const div = document.createElement('div')
-    div.className = 'label'
-    div.textContent = mm / 10
-    if (mm == 0) { div.style.left = 0; div.style.textAlign = 'left' }
-    else if (mm == L) { div.style.right = 0; div.style.textAlign = 'right' }
-    else div.style.left = (100 * (mm / L) - 5) + '%'
-    document.body.appendChild(div)
+    const label = document.createElement('div')
+    const arrow = document.createElement('div')
+    label.className = 'label'
+    arrow.className = 'arrow'
+    label.textContent = mm / 10
+    if (mm == 0) {
+      label.classList.add('left')
+      arrow.classList.add('left')
+    } else if (mm == L) {
+      label.classList.add('right')
+      arrow.classList.add('right')
+    } else {
+      const x = label.style.left = 100 * (mm / L)
+      arrow.style.left = x + '%'
+      label.style.left = (x - 5) + '%'
+    }
+    document.body.appendChild(label)
+    document.body.appendChild(arrow)
   }
   document.body.onclick = document.body.ontouchstart = () => {
     playing = !playing
