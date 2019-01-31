@@ -134,6 +134,6 @@ function start() {
     }
     ctx.globalAlpha = 0.4
     ctx.fillRect(result.mm / L * canvas.width - 4, 0, 8, canvas.height)
-    document.querySelector('#distance').textContent = result.mm / 10 + 'cm'
+    document.querySelector('#distance').textContent = `${Math.floor(result.mm / 10)}.${result.mm % 10}cm`
   }
 }
